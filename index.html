@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reken Race!</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    /* ===== RESET & BASE ===== */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #4a9e4a;
+    }
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: 'Nunito', sans-serif;
+    }
+
+    /* ===== GAME WRAPPER ===== */
+    #game-wrap {
+      position: relative;
+      width: min(500px, 100vw);
+      height: min(750px, 100vh);
+      overflow: hidden;
+      background: #4a9e4a;
+      border-radius: 0;
+      box-shadow: 0 0 40px rgba(0,0,0,0.4);
+    }
+
+    /* ===== SCREEN SYSTEM ===== */
+    .screen {
+      position: absolute; inset: 0;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+    .screen.active { display: flex; }
+
+    /* ===== START SCREEN ===== */
+    #start-screen {
+      background: linear-gradient(160deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
+    }
+    .start-title {
+      font-family: 'Fredoka One', cursive;
+      font-size: clamp(2.8rem, 10vw, 4rem);
+      color: #FFD700;
+      text-shadow: 3px 3px 0 #FF6B00, 6px 6px 0 rgba(0,0,0,0.3);
+      margin-bottom: 6px;
+      animation: titleBounce 2s ease-in-out infinite;
+    }
+    @keyframes titleBounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+    .start-subtitle {
+      font-size: 1.1rem;
+      color: #aaddff;
+      margin-bottom: 30px;
+      font-weight: 700;
+    }
+    .car-preview {
+      margin-bottom: 28px;
+      animation: carDrive 1s ease-in-out infinite alternate;
+    }
+    @keyframes carDrive {
+      from { transform: translateX(-8px) rotate(-2deg); }
+      to { transform: translateX(8px) rotate(2deg); }
+    }
+    .btn {
+      font-family: 'Fredoka One', cursive;
+      font-size: 1.4rem;
+      padding: 14px 40px;
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+      margin: 6px;
+      letter-spacing: 0.5px;
+    }
+    .btn:active { transform: scale(0.95) !important; }
+    .btn-primary {
+      background: linear-gradient(135deg, #FF6B35, #FF4500);
+      color: white;
+      box-shadow: 0 5px 0 #c43300, 0 7px 15px rgba(0,0,0,0.3);
+    }
+    .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 8px 0 #c43300, 0 10px 20px rgba(0,0,0,0.3); }
+    .btn-secondary {
+      background: linear-gradient(135deg, #4ecdc4, #2CB9B0);
+      color: white;
+      box-shadow: 0 5px 0 #1a8a82, 0 7px 15px rgba(0,0,0,0.2);
+    }
+    .btn-secondary:hover { transform: translateY(-3px); box-shadow: 0 8px 0 #1a8a82, 0 10px 20px rgba(0,0,0,0.2); }
+    .controls-info {
+      margin-top: 22px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 14px 24px;
+      color: #cceeff;
+      font-size: 0.9rem;
+      text-align: center;
+      line-height: 1.7;
+      max-width: 320px;
+    }
+    .controls-info strong { color: #FFD700; }
+
+    /* ===== GAME SCREEN ===== */
+    #game-screen {
+      background: transparent;
+      display: none;
+      flex-direction: column;
+    }
+    #game-screen.active { display: flex; }
+
+    /* HUD */
+    #hud {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 64px;
+      background: linear-gradient(180deg, rgba(20,20,40,0.95) 0%, rgba(20,20,40,0.85) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      z-index: 20;
+      border-bottom: 2px solid rgba(255,255,255,0.1);
+    }
+    .hud-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-family: 'Fredoka One', cursive;
+      color: white;
+      font-size: 1rem;
+    }
+    .hud-label {
+      font-size: 0.65rem;
+      color: #aaa;
+      font-family: 'Nunito', sans-serif;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      display: block;
+      text-transform: uppercase;
+    }
+    .hud-val {
+      font-family: 'Fredoka One', cursive;
+      font-size: 1.2rem;
+      color: #FFD700;
+    }
+    .lives-display { display: flex; gap: 3px; }
+    .life-heart { font-size: 1.3rem; transition: all 0.3s; }
+    .life-heart.lost { opacity: 0.2; filter: grayscale(1); transform: scale(0.8); }
+
+    /* Timer bar */
+    #timer-bar-wrap {
+      position: absolute;
+      top: 64px; left: 0; right: 0;
+      height: 10px;
+      background: rgba(0,0,0,0.3);
+      z-index: 20;
+    }
+    #timer-bar {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, #00e676, #69f0ae);
+      transition: width 0.25s linear, background-color 0.5s;
+      transform-origin: left;
+    }
+    #timer-bar.warning { background: linear-gradient(90deg, #ff5722, #ff9800); }
+
+    /* Progress indicator */
+    #progress-wrap {
+      position: absolute;
+      top: 74px; right: 10px;
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.7);
+      font-weight: 800;
+      z-index: 20;
+    }
+
+    /* Road area */
+    #road-area {
+      position: absolute;
+      top: 74px; bottom: 0; left: 0; right: 0;
+      overflow: hidden;
+    }
+
+    /* Grass */
+    .grass {
+      position: absolute;
+      top: 0; bottom: 0;
+      background: #4a9e4a;
+      overflow: hidden;
+    }
+    #grass-left { left: 0; width: calc(50% - 80px); }
+    #grass-right { right: 0; width: calc(50% - 80px); }
+    .grass-blade {
+      position: absolute;
+      width: 3px;
+      background: #3d8b3d;
+      border-radius: 3px 3px 0 0;
+      bottom: 0;
+      animation: grassSway 2s ease-in-out infinite alternate;
+    }
+    @keyframes grassSway {
+      from { transform: rotate(-3deg); }
+      to { transform: rotate(3deg); }
+    }
+    .grass-flower {
+      position: absolute;
+      font-size: 1rem;
+      animation: grassSway 2.5s ease-in-out infinite alternate;
+    }
+
+    /* Main road */
+    #road {
+      position: absolute;
+      top: 0; bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 160px;
+      background: #4a4a4a;
+      overflow: hidden;
+    }
+    /* Road edges (curbs) */
+    #road::before, #road::after {
+      content: '';
+      position: absolute;
+      top: 0; bottom: 0;
+      width: 8px;
+      background: repeating-linear-gradient(
+        to bottom,
+        #FF4444 0px, #FF4444 20px,
+        white 20px, white 40px
+      );
+      background-size: 8px 40px;
+      animation: scrollStripe 0.4s linear infinite;
+    }
+    #road::before { left: 0; }
+    #road::after { right: 0; }
+
+    /* Center dashes */
+    .road-dashes {
+      position: absolute;
+      top: 0; bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 6px;
+      background: repeating-linear-gradient(
+        to bottom,
+        white 0px, white 30px,
+        transparent 30px, transparent 55px
+      );
+      background-size: 6px 55px;
+      animation: scrollStripe 0.4s linear infinite;
+    }
+    @keyframes scrollStripe {
+      from { background-position: 0 0; }
+      to { background-position: 0 55px; }
+    }
+
+    /* Fork overlay */
+    #fork-overlay {
+      position: absolute;
+      top: 0; bottom: 0; left: 0; right: 0;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    #fork-overlay.visible { opacity: 1; }
+    #fork-overlay svg {
+      position: absolute;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    /* Race car */
+    #car-container {
+      position: absolute;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 15;
+      transition: left 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.5s;
+    }
+    #car-container.answer-left {
+      left: calc(50% - 50px);
+      transform: translateX(-50%) rotate(-10deg);
+    }
+    #car-container.answer-right {
+      left: calc(50% + 50px);
+      transform: translateX(-50%) rotate(10deg);
+    }
+    .car-exhaust {
+      position: absolute;
+      bottom: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 6px;
+    }
+    .exhaust-puff {
+      width: 8px; height: 8px;
+      background: rgba(150,150,150,0.5);
+      border-radius: 50%;
+      animation: exhaustPuff 0.4s ease-out infinite;
+    }
+    .exhaust-puff:nth-child(2) { animation-delay: 0.2s; }
+    @keyframes exhaustPuff {
+      0% { transform: scale(0.5) translateY(0); opacity: 0.7; }
+      100% { transform: scale(1.5) translateY(-15px); opacity: 0; }
+    }
+
+    /* Problem panel */
+    #problem-panel {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: white;
+      border-radius: 20px;
+      padding: 12px 28px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 0 0 4px #FFD700;
+      text-align: center;
+      z-index: 25;
+      opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+      transform: translateX(-50%) translateY(-20px);
+      min-width: 180px;
+    }
+    #problem-panel.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    .problem-text {
+      font-family: 'Fredoka One', cursive;
+      font-size: clamp(1.8rem, 7vw, 2.4rem);
+      color: #1a1a2e;
+      line-height: 1;
+    }
+    .problem-label {
+      font-size: 0.7rem;
+      color: #888;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 2px;
+    }
+
+    /* Answer signs */
+    .answer-sign-wrap {
+      position: absolute;
+      bottom: 110px;
+      z-index: 30;
+      opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+      transform: translateY(30px);
+      cursor: pointer;
+    }
+    .answer-sign-wrap.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    #sign-left {
+      left: calc(50% - 135px);
+    }
+    #sign-right {
+      right: calc(50% - 135px);
+    }
+    .sign-post {
+      width: 6px;
+      height: 60px;
+      background: #8B6914;
+      margin: 0 auto;
+      border-radius: 3px;
+    }
+    .sign-board {
+      width: 90px;
+      min-height: 60px;
+      background: #1565C0;
+      border-radius: 10px;
+      border: 4px solid white;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+      position: relative;
+    }
+    .sign-board:hover { transform: scale(1.08); box-shadow: 0 6px 18px rgba(0,0,0,0.5); }
+    .sign-board:active { transform: scale(0.96); }
+    .sign-arrow {
+      font-size: 1.2rem;
+      color: rgba(255,255,255,0.7);
+    }
+    .sign-number {
+      font-family: 'Fredoka One', cursive;
+      font-size: 2rem;
+      color: white;
+      line-height: 1;
+    }
+    .sign-hint {
+      font-size: 0.65rem;
+      color: rgba(255,255,255,0.6);
+      font-weight: 800;
+      letter-spacing: 0.5px;
+    }
+    #sign-left .sign-arrow::before { content: '← '; }
+    #sign-right .sign-arrow::before { content: ' →'; }
+
+    /* Feedback overlay */
+    #feedback {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    #feedback.show { opacity: 1; }
+    #feedback.correct { background: rgba(0, 230, 118, 0.25); }
+    #feedback.wrong { background: rgba(255, 50, 50, 0.25); }
+    .feedback-text {
+      font-family: 'Fredoka One', cursive;
+      font-size: clamp(2.5rem, 12vw, 3.5rem);
+      text-shadow: 0 3px 10px rgba(0,0,0,0.3);
+      animation: feedbackPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .feedback-text.correct { color: #00e676; }
+    .feedback-text.wrong { color: #ff5252; }
+    .score-pop {
+      font-family: 'Fredoka One', cursive;
+      font-size: 1.6rem;
+      color: #FFD700;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      margin-top: 6px;
+      animation: floatUp 1s ease-out forwards;
+    }
+    @keyframes feedbackPop {
+      from { transform: scale(0.3) rotate(-10deg); }
+      to { transform: scale(1) rotate(0deg); }
+    }
+    @keyframes floatUp {
+      from { transform: translateY(0); opacity: 1; }
+      to { transform: translateY(-40px); opacity: 0; }
+    }
+
+    /* ===== LEVEL COMPLETE SCREEN ===== */
+    #level-complete-screen {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    }
+    .level-complete-stars {
+      font-size: 3rem;
+      animation: starsSpin 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    @keyframes starsSpin {
+      from { transform: scale(0) rotate(-180deg); }
+      to { transform: scale(1) rotate(0deg); }
+    }
+    .level-complete-title {
+      font-family: 'Fredoka One', cursive;
+      font-size: clamp(2rem, 8vw, 2.8rem);
+      color: #FFD700;
+      text-shadow: 3px 3px 0 #FF6B00;
+      margin: 10px 0;
+      text-align: center;
+    }
+    .level-complete-score {
+      font-family: 'Fredoka One', cursive;
+      font-size: 1.4rem;
+      color: #aaddff;
+      margin-bottom: 20px;
+    }
+
+    /* ===== GAME OVER SCREEN ===== */
+    #game-over-screen {
+      background: linear-gradient(135deg, #1a1a2e 0%, #0d0d1a 100%);
+    }
+    .game-over-title {
+      font-family: 'Fredoka One', cursive;
+      font-size: clamp(2.2rem, 9vw, 3rem);
+      color: #ff5252;
+      text-shadow: 3px 3px 0 #990000;
+      margin-bottom: 6px;
+    }
+    .game-over-score {
+      font-family: 'Fredoka One', cursive;
+      font-size: 1.5rem;
+      color: #FFD700;
+      margin-bottom: 20px;
+    }
+    .name-input-wrap {
+      background: rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 20px 24px;
+      margin-bottom: 16px;
+      text-align: center;
+      max-width: 300px;
+      width: 90%;
+    }
+    .name-input-label {
+      color: #aaddff;
+      font-size: 0.9rem;
+      font-weight: 800;
+      margin-bottom: 10px;
+      display: block;
+    }
+    #player-name {
+      font-family: 'Fredoka One', cursive;
+      font-size: 1.3rem;
+      padding: 10px 16px;
+      border-radius: 12px;
+      border: 3px solid #FFD700;
+      background: rgba(255,255,255,0.1);
+      color: white;
+      text-align: center;
+      width: 100%;
+      outline: none;
+    }
+    #player-name::placeholder { color: rgba(255,255,255,0.3); }
+
+    /* ===== SCOREBOARD SCREEN ===== */
+    #scoreboard-screen {
+      background: linear-gradient(160deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    }
+    .scoreboard-title {
+      font-family: 'Fredoka One', cursive;
+      font-size: clamp(1.8rem, 7vw, 2.4rem);
+      color: #FFD700;
+      text-shadow: 2px 2px 0 #FF6B00;
+      margin-bottom: 16px;
+    }
+    .scoreboard-table {
+      width: 90%;
+      max-width: 380px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+    .scoreboard-header {
+      display: grid;
+      grid-template-columns: 40px 1fr auto auto;
+      padding: 10px 16px;
+      background: rgba(255,215,0,0.15);
+      color: #FFD700;
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .scoreboard-row {
+      display: grid;
+      grid-template-columns: 40px 1fr auto auto;
+      padding: 10px 16px;
+      color: white;
+      font-size: 0.9rem;
+      font-weight: 700;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      transition: background 0.3s;
+    }
+    .scoreboard-row.highlight {
+      background: rgba(255,215,0,0.15);
+      animation: highlightPulse 1s ease-in-out 3;
+    }
+    @keyframes highlightPulse {
+      0%, 100% { background: rgba(255,215,0,0.15); }
+      50% { background: rgba(255,215,0,0.35); }
+    }
+    .rank { color: #FFD700; font-family: 'Fredoka One', cursive; }
+    .rank-1 { color: gold; font-size: 1.1rem; }
+    .rank-2 { color: silver; }
+    .rank-3 { color: #CD7F32; }
+    .score-col { color: #4ecdc4; font-family: 'Fredoka One', cursive; }
+    .level-col { color: #aaddff; font-size: 0.8rem; }
+    .empty-scoreboard {
+      color: rgba(255,255,255,0.4);
+      font-size: 0.9rem;
+      padding: 20px;
+      text-align: center;
+    }
+
+    /* Utilities */
+    .text-muted { color: rgba(255,255,255,0.5); font-size: 0.85rem; margin-bottom: 6px; }
+    .mt-8 { margin-top: 8px; }
+    .mb-4 { margin-bottom: 4px; }
+    .mb-8 { margin-bottom: 8px; }
+    .mb-16 { margin-bottom: 16px; }
+
+    /* Responsive */
+    @media (max-height: 650px) {
+      #hud { height: 50px; }
+      #timer-bar-wrap { top: 50px; }
+      #progress-wrap { top: 60px; }
+      #road-area { top: 60px; }
+      .problem-text { font-size: 1.6rem; }
+      .sign-number { font-size: 1.6rem; }
+    }
+
+    /* ===== ANIMATIONS ===== */
+    @keyframes bounceIn {
+      0% { transform: scale(0.5); opacity: 0; }
+      70% { transform: scale(1.1); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .bounce-in { animation: bounceIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(-50%) rotate(0); }
+      20% { transform: translateX(calc(-50% - 8px)) rotate(-5deg); }
+      40% { transform: translateX(calc(-50% + 8px)) rotate(5deg); }
+      60% { transform: translateX(calc(-50% - 5px)) rotate(-3deg); }
+      80% { transform: translateX(calc(-50% + 5px)) rotate(3deg); }
+    }
+    #car-container.shake { animation: shake 0.4s ease; }
+
+    /* Countdown overlay */
+    #countdown-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(20,20,40,0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    #countdown-num {
+      font-family: 'Fredoka One', cursive;
+      font-size: 8rem;
+      color: white;
+      text-shadow: 0 0 40px rgba(255,215,0,0.8);
+      animation: countdownAnim 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    @keyframes countdownAnim {
+      0% { transform: scale(2); opacity: 0; }
+      50% { opacity: 1; }
+      100% { transform: scale(1); opacity: 0.9; }
+    }
+  </style>
+</head>
+<body>
+  <div id="game-wrap">
+
+    <!-- ===================== START SCREEN ===================== -->
+    <div id="start-screen" class="screen active">
+      <div class="car-preview">
+        <svg viewBox="0 0 60 90" width="70" height="105" xmlns="http://www.w3.org/2000/svg">
+          <rect x="8" y="12" width="44" height="66" rx="12" fill="#E53935"/>
+          <rect x="14" y="18" width="32" height="18" rx="6" fill="#90CAF9" opacity="0.9"/>
+          <rect x="14" y="60" width="32" height="12" rx="4" fill="#90CAF9" opacity="0.7"/>
+          <rect x="2" y="16" width="12" height="18" rx="5" fill="#222"/>
+          <rect x="46" y="16" width="12" height="18" rx="5" fill="#222"/>
+          <rect x="2" y="56" width="12" height="18" rx="5" fill="#222"/>
+          <rect x="46" y="56" width="12" height="18" rx="5" fill="#222"/>
+          <rect x="27" y="12" width="6" height="66" fill="#FFD700" opacity="0.6" rx="2"/>
+          <circle cx="30" cy="42" r="5" fill="#FFD700" opacity="0.4"/>
+          <rect x="20" y="75" width="8" height="4" rx="2" fill="#FF9800" opacity="0.8"/>
+          <rect x="32" y="75" width="8" height="4" rx="2" fill="#FF9800" opacity="0.8"/>
+        </svg>
+      </div>
+      <div class="start-title">Reken Race!</div>
+      <div class="start-subtitle">Rij de juiste weg en win!</div>
+      <button class="btn btn-primary" onclick="startGame()">&#9654; Start Spel</button>
+      <button class="btn btn-secondary" onclick="showScreen('scoreboard-screen'); renderScoreboard()">&#127942; Scorebord</button>
+      <div class="controls-info">
+        <strong>&#8592;</strong> Pijltje links = linker afslag<br/>
+        <strong>&#8594;</strong> Pijltje rechts = rechter afslag<br/>
+        Of <strong>klik/tik</strong> op het bord!<br/>
+        10 goede antwoorden = volgend level
+      </div>
+    </div>
+
+    <!-- ===================== GAME SCREEN ===================== -->
+    <div id="game-screen" class="screen">
+      <!-- HUD -->
+      <div id="hud">
+        <div class="hud-item" style="flex-direction:column; align-items:flex-start; gap:2px;">
+          <span class="hud-label">Levens</span>
+          <div class="lives-display" id="lives-display"></div>
+        </div>
+        <div class="hud-item" style="flex-direction:column; align-items:center; gap:2px;">
+          <span class="hud-label">Level</span>
+          <span class="hud-val" id="hud-level">1</span>
+        </div>
+        <div class="hud-item" style="flex-direction:column; align-items:flex-end; gap:2px;">
+          <span class="hud-label">Score</span>
+          <span class="hud-val" id="hud-score">0</span>
+        </div>
+      </div>
+      <div id="timer-bar-wrap"><div id="timer-bar"></div></div>
+      <div id="progress-wrap"><span id="progress-text">0/10</span></div>
+
+      <!-- Road Area -->
+      <div id="road-area">
+        <!-- Grass sides -->
+        <div class="grass" id="grass-left" style="left:0; width:calc(50% - 80px)"></div>
+        <div class="grass" id="grass-right" style="right:0; width:calc(50% - 80px)"></div>
+
+        <!-- Road -->
+        <div id="road">
+          <div class="road-dashes"></div>
+        </div>
+
+        <!-- Problem panel -->
+        <div id="problem-panel">
+          <div class="problem-label">Rekensom</div>
+          <div class="problem-text" id="problem-text">3 + 4 = ?</div>
+        </div>
+
+        <!-- Answer signs -->
+        <div class="answer-sign-wrap" id="sign-left" onclick="handleAnswer('left')">
+          <div class="sign-board" id="sign-board-left">
+            <div class="sign-arrow">←</div>
+            <div class="sign-number" id="left-answer">7</div>
+            <div class="sign-hint">LINKS</div>
+          </div>
+          <div class="sign-post"></div>
+        </div>
+        <div class="answer-sign-wrap" id="sign-right" onclick="handleAnswer('right')">
+          <div class="sign-board" id="sign-board-right">
+            <div class="sign-arrow">→</div>
+            <div class="sign-number" id="right-answer">9</div>
+            <div class="sign-hint">RECHTS</div>
+          </div>
+          <div class="sign-post"></div>
+        </div>
+
+        <!-- Car -->
+        <div id="car-container">
+          <div class="car-exhaust">
+            <div class="exhaust-puff"></div>
+            <div class="exhaust-puff"></div>
+          </div>
+          <svg id="game-car" viewBox="0 0 60 90" width="54" height="81" xmlns="http://www.w3.org/2000/svg">
+            <rect x="8" y="12" width="44" height="66" rx="12" fill="#E53935"/>
+            <rect x="14" y="18" width="32" height="18" rx="6" fill="#90CAF9" opacity="0.9"/>
+            <rect x="14" y="60" width="32" height="12" rx="4" fill="#90CAF9" opacity="0.7"/>
+            <rect x="2" y="16" width="12" height="18" rx="5" fill="#222"/>
+            <rect x="46" y="16" width="12" height="18" rx="5" fill="#222"/>
+            <rect x="2" y="56" width="12" height="18" rx="5" fill="#222"/>
+            <rect x="46" y="56" width="12" height="18" rx="5" fill="#222"/>
+            <rect x="27" y="12" width="6" height="66" fill="#FFD700" opacity="0.6" rx="2"/>
+            <circle cx="30" cy="42" r="5" fill="#FFD700" opacity="0.4"/>
+          </svg>
+        </div>
+
+        <!-- Feedback -->
+        <div id="feedback">
+          <div class="feedback-text" id="feedback-text"></div>
+          <div class="score-pop" id="score-pop"></div>
+        </div>
+
+        <!-- Countdown overlay -->
+        <div id="countdown-overlay" style="display:none;">
+          <div id="countdown-num">3</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== LEVEL COMPLETE SCREEN ===================== -->
+    <div id="level-complete-screen" class="screen">
+      <div class="level-complete-stars" id="lc-stars">⭐⭐⭐</div>
+      <div class="level-complete-title" id="lc-title">Level 1 Gehaald!</div>
+      <div class="level-complete-score" id="lc-score">Score: 100</div>
+      <div class="text-muted mb-16" id="lc-next">Klaar voor level 2?</div>
+      <button class="btn btn-primary" onclick="nextLevel()">Verder &#8594;</button>
+      <button class="btn btn-secondary mt-8" onclick="endGame()">Stoppen</button>
+    </div>
+
+    <!-- ===================== GAME OVER SCREEN ===================== -->
+    <div id="game-over-screen" class="screen">
+      <div class="game-over-title" id="go-title">Game Over!</div>
+      <div class="game-over-score" id="go-score">Score: 0</div>
+      <div class="text-muted mb-8" id="go-level">Bereikt: Level 1</div>
+
+      <div class="name-input-wrap" id="name-input-wrap" style="display:none;">
+        <span class="name-input-label">🏆 Je staat in de top 10!<br/>Vul je naam in:</span>
+        <input type="text" id="player-name" placeholder="Jouw naam..." maxlength="12" autocomplete="off" />
+        <button class="btn btn-primary mt-8" style="font-size:1.1rem; padding:10px 28px;" onclick="saveHighScore()">Opslaan</button>
+      </div>
+
+      <div id="go-scoreboard" style="width:90%; max-width:380px;"></div>
+
+      <button class="btn btn-primary mt-8" onclick="startGame()">&#9654; Opnieuw Spelen</button>
+      <button class="btn btn-secondary mt-8" onclick="showScreen('start-screen')">&#8962; Hoofdmenu</button>
+    </div>
+
+    <!-- ===================== SCOREBOARD SCREEN ===================== -->
+    <div id="scoreboard-screen" class="screen">
+      <div class="scoreboard-title">🏆 Topscores</div>
+      <div class="scoreboard-table" id="scoreboard-table"></div>
+      <button class="btn btn-secondary" onclick="showScreen('start-screen')">&#8592; Terug</button>
+    </div>
+
+  </div><!-- #game-wrap -->
+
+  <script>
+  /* ============================================================
+     REKEN RACE - Complete Game Logic
+     ============================================================ */
+
+  // ===== STATE =====
+  const G = {
+    screen: 'start',
+    level: 1,
+    score: 0,
+    lives: 3,
+    correctCount: 0,
+    problem: null,
+    timerInterval: null,
+    timeLeft: 10,
+    locked: false,    // prevent double input
+    questionStartTime: 0,
+    pendingNewQuestion: false,
+    tempHighlightIndex: -1,
+  };
+
+  // ===== AUDIO =====
+  let audioCtx = null;
+  function getAudio() {
+    if (!audioCtx) {
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+    }
+    return audioCtx;
+  }
+
+  function playTone(freqs, durations, type = 'sine', vol = 0.25) {
+    const ctx = getAudio();
+    if (!ctx) return;
+    const gain = ctx.createGain();
+    gain.connect(ctx.destination);
+    let time = ctx.currentTime;
+    freqs.forEach((f, i) => {
+      const osc = ctx.createOscillator();
+      osc.type = type;
+      osc.connect(gain);
+      osc.frequency.setValueAtTime(f, time);
+      gain.gain.setValueAtTime(vol, time);
+      gain.gain.exponentialRampToValueAtTime(0.001, time + durations[i]);
+      osc.start(time);
+      osc.stop(time + durations[i]);
+      time += durations[i];
+    });
+  }
+
+  function soundCorrect() {
+    playTone([523, 659, 784, 1047], [0.1, 0.1, 0.1, 0.25], 'sine', 0.2);
+  }
+  function soundWrong() {
+    playTone([300, 220], [0.15, 0.3], 'sawtooth', 0.15);
+  }
+  function soundLevelUp() {
+    playTone([523, 659, 784, 1047, 1175, 1568], [0.08, 0.08, 0.08, 0.08, 0.08, 0.4], 'sine', 0.2);
+  }
+  function soundTick() {
+    playTone([800], [0.05], 'square', 0.05);
+  }
+  function soundGameOver() {
+    playTone([392, 349, 330, 262], [0.15, 0.15, 0.2, 0.5], 'sawtooth', 0.15);
+  }
+  function soundStart() {
+    playTone([392, 523, 659, 784], [0.1, 0.1, 0.1, 0.2], 'sine', 0.2);
+  }
+
+  // ===== PROBLEM GENERATION =====
+  function rand(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  function generateProblem(level) {
+    let num1, num2, op, answer, display;
+
+    switch (level) {
+      case 1: {
+        // Addition, result 1–10
+        answer = rand(1, 10);
+        num1 = rand(0, answer);
+        num2 = answer - num1;
+        op = '+';
+        display = `${num1} + ${num2} = ?`;
+        break;
+      }
+      case 2: {
+        // Addition + subtraction, result 0–9
+        answer = rand(0, 9);
+        const useAdd = Math.random() < 0.5;
+        if (useAdd) {
+          num1 = rand(0, answer);
+          num2 = answer - num1;
+          display = `${num1} + ${num2} = ?`;
+        } else {
+          num2 = rand(0, answer);
+          num1 = answer + num2;
+          display = `${num1} - ${num2} = ?`;
+        }
+        break;
+      }
+      case 3: {
+        // Addition, result 1–15
+        answer = rand(1, 15);
+        num1 = rand(0, answer);
+        num2 = answer - num1;
+        display = `${num1} + ${num2} = ?`;
+        break;
+      }
+      case 4: {
+        // Addition + subtraction, result 0–15
+        answer = rand(0, 15);
+        const useAdd = Math.random() < 0.5;
+        if (useAdd) {
+          num1 = rand(0, answer);
+          num2 = answer - num1;
+          display = `${num1} + ${num2} = ?`;
+        } else {
+          num2 = rand(0, answer);
+          num1 = answer + num2;
+          display = `${num1} - ${num2} = ?`;
+        }
+        break;
+      }
+      case 5: {
+        // Addition, result 1–20
+        answer = rand(1, 20);
+        num1 = rand(0, answer);
+        num2 = answer - num1;
+        display = `${num1} + ${num2} = ?`;
+        break;
+      }
+      case 6: {
+        // Addition + subtraction, result 0–20
+        answer = rand(0, 20);
+        const useAdd = Math.random() < 0.5;
+        if (useAdd) {
+          num1 = rand(0, answer);
+          num2 = answer - num1;
+          display = `${num1} + ${num2} = ?`;
+        } else {
+          num2 = rand(0, answer);
+          num1 = answer + num2;
+          display = `${num1} - ${num2} = ?`;
+        }
+        break;
+      }
+      case 7: {
+        // Times tables 2 and 5
+        const table = Math.random() < 0.5 ? 2 : 5;
+        num1 = rand(1, 10);
+        num2 = table;
+        answer = num1 * num2;
+        display = `${num1} × ${num2} = ?`;
+        break;
+      }
+      case 8: {
+        // All times tables 1–10
+        num1 = rand(1, 10);
+        num2 = rand(1, 10);
+        answer = num1 * num2;
+        display = `${num1} × ${num2} = ?`;
+        break;
+      }
+      default: {
+        // Fallback: level 8 style
+        num1 = rand(1, 10);
+        num2 = rand(1, 10);
+        answer = num1 * num2;
+        display = `${num1} × ${num2} = ?`;
+      }
+    }
+
+    const wrong = generateWrongAnswer(answer);
+    const leftIsCorrect = Math.random() < 0.5;
+    return {
+      display,
+      answer,
+      wrong,
+      leftAnswer: leftIsCorrect ? answer : wrong,
+      rightAnswer: leftIsCorrect ? wrong : answer,
+      leftIsCorrect,
+    };
+  }
+
+  function generateWrongAnswer(correct) {
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const offset = rand(1, 3);
+      const dir = Math.random() < 0.5 ? 1 : -1;
+      const candidate = correct + dir * offset;
+      if (candidate > 0 && candidate !== correct) return candidate;
+    }
+    // Fallback
+    return correct > 1 ? correct - 1 : correct + 1;
+  }
+
+  // ===== SCREEN MANAGEMENT =====
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    G.screen = id;
+  }
+
+  // ===== LIVES DISPLAY =====
+  function updateLivesDisplay() {
+    const el = document.getElementById('lives-display');
+    el.innerHTML = '';
+    for (let i = 0; i < 3; i++) {
+      const heart = document.createElement('span');
+      heart.className = 'life-heart' + (i >= G.lives ? ' lost' : '');
+      heart.textContent = '❤️';
+      el.appendChild(heart);
+    }
+  }
+
+  // ===== TIMER =====
+  function startTimer() {
+    clearInterval(G.timerInterval);
+    G.timeLeft = 10;
+    G.questionStartTime = Date.now();
+    updateTimerBar();
+    G.timerInterval = setInterval(() => {
+      G.timeLeft -= 0.25;
+      if (G.timeLeft <= 3) soundTick();
+      updateTimerBar();
+      if (G.timeLeft <= 0) {
+        clearInterval(G.timerInterval);
+        handleTimeout();
+      }
+    }, 250);
+  }
+
+  function stopTimer() {
+    clearInterval(G.timerInterval);
+    G.timerInterval = null;
+  }
+
+  function updateTimerBar() {
+    const bar = document.getElementById('timer-bar');
+    const pct = Math.max(0, (G.timeLeft / 10) * 100);
+    bar.style.width = pct + '%';
+    bar.classList.toggle('warning', G.timeLeft <= 3);
+  }
+
+  function handleTimeout() {
+    if (G.locked) return;
+    G.locked = true;
+    loseLife();
+    showFeedback('wrong', 'Te laat!', 0);
+    setTimeout(() => {
+      hideSigns();
+      resetCarPosition();
+      setTimeout(() => {
+        if (G.lives <= 0) {
+          triggerGameOver();
+        } else {
+          G.locked = false;
+          showNewQuestion();
+        }
+      }, 600);
+    }, 1200);
+  }
+
+  // ===== QUESTION FLOW =====
+  function showNewQuestion() {
+    if (G.screen !== 'game-screen') return;
+    G.problem = generateProblem(G.level);
+
+    document.getElementById('problem-text').textContent = G.problem.display;
+    document.getElementById('left-answer').textContent = G.problem.leftAnswer;
+    document.getElementById('right-answer').textContent = G.problem.rightAnswer;
+
+    // Reset sign colors
+    document.getElementById('sign-board-left').style.background = '#1565C0';
+    document.getElementById('sign-board-right').style.background = '#1565C0';
+
+    // Show problem panel
+    document.getElementById('problem-panel').classList.add('visible');
+
+    // Show signs with slight delay
+    setTimeout(() => {
+      document.getElementById('sign-left').classList.add('visible');
+      document.getElementById('sign-right').classList.add('visible');
+    }, 200);
+
+    startTimer();
+  }
+
+  function hideSigns() {
+    document.getElementById('sign-left').classList.remove('visible');
+    document.getElementById('sign-right').classList.remove('visible');
+    document.getElementById('problem-panel').classList.remove('visible');
+    stopTimer();
+  }
+
+  // ===== ANSWER HANDLING =====
+  function handleAnswer(side) {
+    if (G.locked || !G.problem) return;
+    if (G.screen !== 'game-screen') return;
+    G.locked = true;
+    stopTimer();
+
+    const isCorrect = (side === 'left') ? G.problem.leftIsCorrect : !G.problem.leftIsCorrect;
+    const elapsed = (Date.now() - G.questionStartTime) / 1000;
+
+    if (isCorrect) {
+      handleCorrect(side, elapsed);
+    } else {
+      handleWrong(side);
+    }
+  }
+
+  function handleCorrect(side, elapsed) {
+    soundCorrect();
+    // Highlight correct sign green
+    const boardId = side === 'left' ? 'sign-board-left' : 'sign-board-right';
+    document.getElementById(boardId).style.background = '#2e7d32';
+
+    // Move car
+    const car = document.getElementById('car-container');
+    car.classList.add(side === 'left' ? 'answer-left' : 'answer-right');
+
+    // Score
+    const base = 10 * G.level;
+    const speedBonus = Math.round(Math.max(0, (10 - elapsed) / 10) * base);
+    const gained = base + speedBonus;
+    G.score += gained;
+    G.correctCount++;
+
+    document.getElementById('hud-score').textContent = G.score;
+    document.getElementById('progress-text').textContent = G.correctCount + '/10';
+
+    showFeedback('correct', 'Goed zo! 🎉', gained);
+
+    setTimeout(() => {
+      hideSigns();
+      resetCarPosition();
+      setTimeout(() => {
+        G.locked = false;
+        if (G.correctCount >= 10) {
+          triggerLevelComplete();
+        } else {
+          showNewQuestion();
+        }
+      }, 400);
+    }, 1200);
+  }
+
+  function handleWrong(side) {
+    soundWrong();
+    // Highlight wrong sign red, correct green
+    const wrongBoard = side === 'left' ? 'sign-board-left' : 'sign-board-right';
+    const correctBoard = side === 'left' ? 'sign-board-right' : 'sign-board-left';
+    document.getElementById(wrongBoard).style.background = '#c62828';
+    document.getElementById(correctBoard).style.background = '#2e7d32';
+
+    // Shake car
+    const car = document.getElementById('car-container');
+    car.classList.add('shake');
+    setTimeout(() => car.classList.remove('shake'), 500);
+
+    loseLife();
+    showFeedback('wrong', 'Helaas! 😢', 0);
+
+    setTimeout(() => {
+      hideSigns();
+      setTimeout(() => {
+        if (G.lives <= 0) {
+          triggerGameOver();
+        } else {
+          G.locked = false;
+          showNewQuestion();
+        }
+      }, 600);
+    }, 1200);
+  }
+
+  function loseLife() {
+    G.lives = Math.max(0, G.lives - 1);
+    updateLivesDisplay();
+  }
+
+  function resetCarPosition() {
+    const car = document.getElementById('car-container');
+    car.classList.remove('answer-left', 'answer-right', 'shake');
+  }
+
+  // ===== FEEDBACK =====
+  function showFeedback(type, text, score) {
+    const fb = document.getElementById('feedback');
+    const ft = document.getElementById('feedback-text');
+    const sp = document.getElementById('score-pop');
+
+    ft.className = 'feedback-text ' + type;
+    ft.textContent = text;
+
+    if (score > 0) {
+      sp.textContent = '+' + score + ' punten!';
+      sp.style.display = 'block';
+      sp.style.animation = 'none';
+      void sp.offsetWidth; // reflow
+      sp.style.animation = '';
+    } else {
+      sp.style.display = 'none';
+    }
+
+    fb.className = 'feedback show ' + type;
+    ft.style.animation = 'none';
+    void ft.offsetWidth;
+    ft.style.animation = '';
+
+    setTimeout(() => {
+      fb.classList.remove('show');
+    }, 1000);
+  }
+
+  // ===== GAME FLOW =====
+  function startGame() {
+    getAudio(); // init audio on user gesture
+    G.level = 1;
+    G.score = 0;
+    G.lives = 3;
+    G.correctCount = 0;
+    G.locked = false;
+    G.problem = null;
+
+    showScreen('game-screen');
+    document.getElementById('hud-level').textContent = G.level;
+    document.getElementById('hud-score').textContent = G.score;
+    document.getElementById('progress-text').textContent = '0/10';
+    updateLivesDisplay();
+    resetCarPosition();
+    hideSigns();
+    document.getElementById('feedback').className = 'feedback';
+
+    soundStart();
+    startCountdown(() => {
+      showNewQuestion();
+    });
+  }
+
+  function startCountdown(cb) {
+    const overlay = document.getElementById('countdown-overlay');
+    const numEl = document.getElementById('countdown-num');
+    overlay.style.display = 'flex';
+    let count = 3;
+
+    const tick = () => {
+      numEl.textContent = count > 0 ? count : 'GO!';
+      numEl.style.animation = 'none';
+      void numEl.offsetWidth;
+      numEl.style.animation = 'countdownAnim 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)';
+      if (count === 0) {
+        soundStart();
+        setTimeout(() => {
+          overlay.style.display = 'none';
+          cb();
+        }, 700);
+      } else {
+        soundTick();
+        count--;
+        setTimeout(tick, 900);
+      }
+    };
+    tick();
+  }
+
+  function triggerLevelComplete() {
+    stopTimer();
+    soundLevelUp();
+    hideSigns();
+
+    document.getElementById('lc-title').textContent = `Level ${G.level} Gehaald! 🎊`;
+    document.getElementById('lc-score').textContent = `Score: ${G.score}`;
+
+    if (G.level >= 8) {
+      document.getElementById('lc-title').textContent = 'Alle Levels Gehaald! 🏆';
+      document.getElementById('lc-next').textContent = 'Geweldig! Je hebt gewonnen!';
+    } else {
+      document.getElementById('lc-next').textContent = `Klaar voor level ${G.level + 1}?`;
+    }
+
+    setTimeout(() => showScreen('level-complete-screen'), 300);
+  }
+
+  function nextLevel() {
+    if (G.level >= 8) {
+      endGame();
+      return;
+    }
+    G.level++;
+    G.correctCount = 0;
+    G.lives = 3;
+    G.locked = false;
+
+    showScreen('game-screen');
+    document.getElementById('hud-level').textContent = G.level;
+    document.getElementById('hud-score').textContent = G.score;
+    document.getElementById('progress-text').textContent = '0/10';
+    updateLivesDisplay();
+    resetCarPosition();
+    hideSigns();
+    document.getElementById('feedback').className = 'feedback';
+
+    startCountdown(() => showNewQuestion());
+  }
+
+  function triggerGameOver() {
+    stopTimer();
+    soundGameOver();
+
+    const isWin = G.level > 8 || (G.level === 8 && G.correctCount >= 10);
+    const goTitle = document.getElementById('go-title');
+    if (isWin) {
+      goTitle.textContent = 'Gewonnen! 🏆';
+      goTitle.style.color = '#FFD700';
+    } else {
+      goTitle.textContent = 'Game Over!';
+      goTitle.style.color = '#ff5252';
+    }
+
+    document.getElementById('go-score').textContent = `Eindscore: ${G.score}`;
+    document.getElementById('go-level').textContent = `Level bereikt: ${G.level}`;
+
+    // Check highscore
+    const scores = loadHighScores();
+    const qualifies = scores.length < 10 || G.score > scores[scores.length - 1].score;
+
+    const nameWrap = document.getElementById('name-input-wrap');
+    if (qualifies && G.score > 0) {
+      nameWrap.style.display = 'block';
+      document.getElementById('player-name').value = '';
+      document.getElementById('go-scoreboard').innerHTML = '';
+      G.tempHighlightIndex = -1;
+    } else {
+      nameWrap.style.display = 'none';
+      renderGoScoreboard(-1);
+    }
+
+    setTimeout(() => showScreen('game-over-screen'), 500);
+  }
+
+  function endGame() {
+    triggerGameOver();
+  }
+
+  // ===== KEYBOARD CONTROLS =====
+  document.addEventListener('keydown', (e) => {
+    if (G.screen !== 'game-screen') return;
+    if (e.key === 'ArrowLeft') { e.preventDefault(); handleAnswer('left'); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); handleAnswer('right'); }
+  });
+
+  // ===== HIGH SCORES =====
+  const HS_KEY = 'rekenrace_highscores_v1';
+
+  function loadHighScores() {
+    try {
+      return JSON.parse(localStorage.getItem(HS_KEY)) || [];
+    } catch { return []; }
+  }
+
+  function saveHighScores(scores) {
+    localStorage.setItem(HS_KEY, JSON.stringify(scores));
+  }
+
+  function saveHighScore() {
+    const name = document.getElementById('player-name').value.trim() || 'Speler';
+    const scores = loadHighScores();
+    const entry = { name, score: G.score, level: G.level };
+    scores.push(entry);
+    scores.sort((a, b) => b.score - a.score);
+    scores.splice(10);
+    saveHighScores(scores);
+
+    const idx = scores.findIndex(s => s === entry);
+    G.tempHighlightIndex = idx;
+
+    document.getElementById('name-input-wrap').style.display = 'none';
+    renderGoScoreboard(idx);
+  }
+
+  function renderScoreTable(containerId, highlightIdx) {
+    const scores = loadHighScores();
+    const container = document.getElementById(containerId);
+
+    if (scores.length === 0) {
+      container.innerHTML = `
+        <div class="scoreboard-header">
+          <span>#</span><span>Naam</span><span>Score</span><span>Level</span>
+        </div>
+        <div class="empty-scoreboard">Nog geen scores. Speel het spel!</div>
+      `;
+      return;
+    }
+
+    const medals = ['🥇', '🥈', '🥉'];
+    let html = `
+      <div class="scoreboard-header">
+        <span>#</span><span>Naam</span><span>Score</span><span>Lvl</span>
+      </div>
+    `;
+    scores.forEach((s, i) => {
+      const rankDisplay = medals[i] || `${i + 1}`;
+      const highlight = i === highlightIdx ? ' highlight' : '';
+      html += `
+        <div class="scoreboard-row${highlight}">
+          <span class="rank rank-${i+1}">${rankDisplay}</span>
+          <span>${escHtml(s.name)}</span>
+          <span class="score-col">${s.score}</span>
+          <span class="level-col">${s.level}</span>
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
+  }
+
+  function renderScoreboard() {
+    renderScoreTable('scoreboard-table', -1);
+  }
+
+  function renderGoScoreboard(highlightIdx) {
+    const container = document.getElementById('go-scoreboard');
+    const scores = loadHighScores();
+
+    if (scores.length === 0) {
+      container.innerHTML = '';
+      return;
+    }
+
+    const medals = ['🥇', '🥈', '🥉'];
+    let html = `
+      <div class="scoreboard-table" style="margin-bottom:0;">
+        <div class="scoreboard-header">
+          <span>#</span><span>Naam</span><span>Score</span><span>Lvl</span>
+        </div>
+    `;
+    scores.forEach((s, i) => {
+      const rankDisplay = medals[i] || `${i + 1}`;
+      const highlight = i === highlightIdx ? ' highlight' : '';
+      html += `
+        <div class="scoreboard-row${highlight}">
+          <span class="rank rank-${i+1}">${rankDisplay}</span>
+          <span>${escHtml(s.name)}</span>
+          <span class="score-col">${s.score}</span>
+          <span class="level-col">${s.level}</span>
+        </div>
+      `;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // ===== GRASS DECORATION =====
+  function buildGrass() {
+    const decorItems = ['🌸', '🌼', '🌻', '🌿', '🍀'];
+    ['grass-left', 'grass-right'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.innerHTML = '';
+      // Add random flowers/plants
+      for (let i = 0; i < 8; i++) {
+        const flower = document.createElement('span');
+        flower.className = 'grass-flower';
+        flower.textContent = decorItems[Math.floor(Math.random() * decorItems.length)];
+        flower.style.left = Math.random() * 80 + '%';
+        flower.style.top = Math.random() * 90 + '%';
+        flower.style.fontSize = (0.7 + Math.random() * 0.5) + 'rem';
+        flower.style.animationDelay = (Math.random() * 2) + 's';
+        flower.style.animationDuration = (2 + Math.random() * 2) + 's';
+        el.appendChild(flower);
+      }
+    });
+  }
+
+  // ===== ENTER KEY for name input =====
+  document.getElementById('player-name').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') saveHighScore();
+  });
+
+  // ===== INIT =====
+  buildGrass();
+  </script>
+</body>
+</html>
