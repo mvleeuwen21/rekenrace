@@ -144,31 +144,36 @@
     }
     @keyframes scrollStripe { from { background-position: 0 0; } to { background-position: 0 55px; } }
 
-    /* BOOT theme */
-    [data-vehicle="boot"] #road-area { background: #1565C0; }
-    [data-vehicle="boot"] .grass { background: #1565C0; }
-    [data-vehicle="boot"] .grass::before {
-      content: ''; position: absolute; inset: 0;
-      background: repeating-linear-gradient(-45deg, transparent 0, transparent 10px, rgba(255,255,255,0.04) 10px, rgba(255,255,255,0.06) 14px, transparent 14px, transparent 26px);
+    /* BOOT theme — volledig water, geen vaargeul zichtbaar */
+    /* Golfpatroon op het hele speelveld via #road-area achtergrond */
+    [data-vehicle="boot"] #road-area {
+      background-color: #1565C0;
+      background-image: repeating-linear-gradient(
+        -45deg,
+        transparent 0,          transparent 10px,
+        rgba(255,255,255,0.05)  10px, rgba(255,255,255,0.08) 14px,
+        transparent             14px, transparent             26px
+      );
       animation: waveShift 3s linear infinite;
     }
+    [data-vehicle="boot"] .grass { background: #1565C0; }
+    /* Extra golflaag op de zijkanten voor diepteeffect */
+    [data-vehicle="boot"] .grass::before {
+      content: ''; position: absolute; inset: 0;
+      background: repeating-linear-gradient(
+        -60deg,
+        transparent 0,         transparent 8px,
+        rgba(255,255,255,0.04) 8px, rgba(255,255,255,0.06) 12px,
+        transparent            12px, transparent            22px
+      );
+      animation: waveShift 4s linear infinite reverse;
+    }
     @keyframes waveShift { from { background-position: 0 0; } to { background-position: 56px 56px; } }
-    [data-vehicle="boot"] #road { background: linear-gradient(90deg, #1976D2 0%, #1E88E5 50%, #1976D2 100%); }
-    [data-vehicle="boot"] #road::before {
-      width: 12px; border-radius: 0;
-      background: radial-gradient(circle 5px at 6px 6px, #EF5350 4px, transparent 5px);
-      background-size: 12px 48px; animation: scrollStripe 0.5s linear infinite;
-    }
-    [data-vehicle="boot"] #road::after {
-      width: 12px; border-radius: 0;
-      background: radial-gradient(circle 5px at 6px 6px, #66BB6A 4px, transparent 5px);
-      background-size: 12px 48px; animation: scrollStripe 0.5s linear infinite;
-    }
-    [data-vehicle="boot"] .road-center {
-      width: 4px;
-      background: repeating-linear-gradient(to bottom, #64B5F6 0px, #64B5F6 16px, transparent 16px, transparent 36px);
-      background-size: 4px 36px; animation: scrollStripe 0.5s linear infinite;
-    }
+    /* Weg verdwijnt volledig in het water */
+    [data-vehicle="boot"] #road          { background: transparent; }
+    [data-vehicle="boot"] #road::before,
+    [data-vehicle="boot"] #road::after   { display: none; }  /* geen boeien */
+    [data-vehicle="boot"] .road-center   { display: none; }  /* geen vaargeullijn */
 
     /* TREIN theme */
     [data-vehicle="trein"] #road-area { background: #558B2F; }
