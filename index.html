@@ -5,8 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>RekenRace!</title>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;800;900&display=swap" rel="stylesheet" />
-  <!-- Supabase JS client via CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Geen externe scripts nodig: JSONBin gebruikt gewone fetch() -->
   <style>
     /* ===== RESET & BASE ===== */
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -557,40 +556,34 @@
 
 <script>
 /* ================================================================
-   SUPABASE SETUP INSTRUCTIES
+   JSONBIN.IO SETUP — GRATIS ONLINE HIGHSCORE (3 minuten setup)
    ================================================================
-   1. Maak een gratis account aan op https://supabase.com
-   2. Maak een nieuw project aan
-   3. Ga naar de SQL Editor en maak de tabel aan:
+   JSONBin.io slaat je scores op als een JSON-bestand in de cloud.
+   Geen database, geen SQL, geen ingewikkelde configuratie.
 
-        CREATE TABLE scores (
-          id        bigserial PRIMARY KEY,
-          naam      text        NOT NULL,
-          score     bigint      NOT NULL,
-          level     bigint      NOT NULL,
-          voertuig  text        NOT NULL,
-          created_at timestamptz DEFAULT now()
-        );
+   STAP 1 — Account aanmaken (gratis, geen creditcard nodig)
+     → Ga naar https://jsonbin.io en klik op "Sign Up"
+     → Registreer met e-mail (of GitHub/Google login)
 
-   4. Stel Row Level Security in (Settings > Authentication > RLS):
+   STAP 2 — Bin aanmaken (je scores-opslag)
+     → Klik op "+ Create Bin" (linksboven na inloggen)
+     → Plak in het tekstveld: {"scores":[]}
+     → Klik "Create Bin"
+     → Kopieer het Bin ID dat verschijnt (bijv. "64f2ab3c8a...")
+     → Vul het in bij JSONBIN_ID hieronder
 
-        ALTER TABLE scores ENABLE ROW LEVEL SECURITY;
+   STAP 3 — API-sleutel ophalen
+     → Klik rechtsboven op je profielfoto → "Account Settings"
+     → Klik op "API Keys" in het menu
+     → Kopieer de "Master Key" (begint met $2a$10$...)
+     → Vul hem in bij JSONBIN_KEY hieronder
 
-        CREATE POLICY "Allow anon select"
-          ON scores FOR SELECT TO anon USING (true);
-
-        CREATE POLICY "Allow anon insert"
-          ON scores FOR INSERT TO anon WITH CHECK (true);
-
-   5. Haal je gegevens op via: Settings > API
-      - Project URL  → vul in bij SUPABASE_URL
-      - anon public  → vul in bij SUPABASE_ANON_KEY
-
-   6. Vul de twee constanten hieronder in.
+   STAP 4 — Opslaan en genieten!
+     Scores worden nu gedeeld over alle apparaten en browsers.
    ================================================================ */
 
-const SUPABASE_URL      = '';  // Bijv: 'https://abcde12345.supabase.co'
-const SUPABASE_ANON_KEY = '';  // Jouw anon/public API-sleutel
+const JSONBIN_ID  = '';  // Jouw Bin ID,    bijv: '64f2ab3c8a4d316369123456'
+const JSONBIN_KEY = '';  // Jouw Master Key, bijv: '$2a$10$xxxxxxxxxxxxxxxxxxxxxxx'
 
 /* ================================================================
    GAME STATE
@@ -611,46 +604,48 @@ const G = {
 };
 
 /* ================================================================
-   SUPABASE CLIENT
+   JSONBIN.IO  — online scores lezen en schrijven
    ================================================================ */
-let sbClient = null;
+const JSONBIN_BASE = 'https://api.jsonbin.io/v3/b';
 
-function initSupabase() {
-  if (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase) {
-    try {
-      sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    } catch (e) {
-      sbClient = null;
-    }
-  }
+function jsonbinHeaders() {
+  return { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_KEY };
 }
 
 async function loadOnlineScores() {
-  if (!sbClient) return null;
+  if (!JSONBIN_ID || !JSONBIN_KEY) return null;
   try {
-    const { data, error } = await sbClient
-      .from('scores')
-      .select('naam, score, level, voertuig')
-      .order('score', { ascending: false })
-      .limit(10);
-    if (error) throw error;
-    return data || [];
+    const res = await fetch(`${JSONBIN_BASE}/${JSONBIN_ID}/latest`, {
+      headers: { 'X-Master-Key': JSONBIN_KEY },
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    return Array.isArray(json.record?.scores) ? json.record.scores : [];
   } catch (e) {
-    console.warn('Supabase laden mislukt:', e);
+    console.warn('JSONBin laden mislukt:', e);
     return null;
   }
 }
 
 async function saveOnlineScore(naam, score, level, voertuig) {
-  if (!sbClient) return false;
+  if (!JSONBIN_ID || !JSONBIN_KEY) return false;
   try {
-    const { error } = await sbClient
-      .from('scores')
-      .insert([{ naam, score, level, voertuig }]);
-    if (error) throw error;
+    // Lees huidige top 10 op
+    const current = (await loadOnlineScores()) || [];
+    // Voeg nieuwe score toe, sorteer, knip af op 10
+    current.push({ naam, score, level, voertuig });
+    current.sort((a, b) => b.score - a.score);
+    current.splice(10);
+    // Schrijf terug naar JSONBin
+    const res = await fetch(`${JSONBIN_BASE}/${JSONBIN_ID}`, {
+      method: 'PUT',
+      headers: jsonbinHeaders(),
+      body: JSON.stringify({ scores: current }),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     return true;
   } catch (e) {
-    console.warn('Supabase opslaan mislukt:', e);
+    console.warn('JSONBin opslaan mislukt:', e);
     return false;
   }
 }
@@ -1271,8 +1266,6 @@ function buildGrass() {
 /* ================================================================
    INIT
    ================================================================ */
-initSupabase();
-
 // Restore saved vehicle
 (function () {
   const saved = localStorage.getItem(LS_VEHICLE) || 'auto';
