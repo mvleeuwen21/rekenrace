@@ -35,6 +35,31 @@ body { display: flex; justify-content: center; align-items: center; font-family:
 }
 .start-subtitle { font-size: 1rem; color: #aaddff; margin-bottom: 12px; font-weight: 700; margin-top: 6px; }
 
+/* ===== GROUP PICKER ===== */
+.group-picker { display: flex; gap: 14px; margin: 0 0 14px; justify-content: center; width: 90%; }
+.group-card {
+  flex: 1; max-width: 180px;
+  background: rgba(255,255,255,0.07);
+  border: 3px solid rgba(255,255,255,0.2);
+  border-radius: 18px;
+  padding: 16px 10px 14px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+}
+.group-card:hover { background: rgba(255,255,255,0.14); transform: translateY(-3px); }
+.group-card:active { transform: scale(0.96); }
+.group-card.selected {
+  border-color: #FFD700;
+  background: rgba(255,215,0,0.15);
+  box-shadow: 0 0 18px rgba(255,215,0,0.35);
+}
+.group-card-emoji { font-size: 2rem; margin-bottom: 6px; }
+.group-card-name { font-family: 'Fredoka One', cursive; font-size: 1.2rem; color: white; }
+.group-card-desc { font-size: 0.72rem; color: rgba(255,255,255,0.6); margin-top: 4px; line-height: 1.4; }
+.group-section-label { font-size: 0.7rem; color: #aaddff; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+
 /* ===== VEHICLE PICKER ===== */
 .vehicle-picker { display: flex; gap: 10px; margin: 0 0 16px; justify-content: center; }
 .vehicle-card {
@@ -223,11 +248,11 @@ body { display: flex; justify-content: center; align-items: center; font-family:
   transform: translateY(30px); cursor: pointer;
 }
 .answer-sign-wrap.visible { opacity: 1; transform: translateY(0); }
-#sign-left  { left:  calc(50% - 135px); }
-#sign-right { right: calc(50% - 135px); }
+#sign-left  { left:  calc(50% - 145px); }
+#sign-right { right: calc(50% - 145px); }
 .sign-post { width: 6px; height: 60px; background: #8B6914; margin: 0 auto; border-radius: 3px; }
 .sign-board {
-  width: 90px; min-height: 62px;
+  width: 110px; min-height: 62px;
   background: #1565C0; border-radius: 10px; border: 4px solid white;
   box-shadow: 0 4px 12px rgba(0,0,0,0.4);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -249,7 +274,7 @@ body { display: flex; justify-content: center; align-items: center; font-family:
 [data-vehicle="trein"] .sign-board.correct .sign-arrow,
 [data-vehicle="trein"] .sign-board.wrong   .sign-arrow  { color: white !important; }
 .sign-arrow  { font-size: 1.1rem; color: rgba(255,255,255,0.75); }
-.sign-number { font-family: 'Fredoka One', cursive; font-size: 2rem; color: white; line-height: 1; }
+.sign-number { font-family: 'Fredoka One', cursive; font-size: 1.5rem; color: white; line-height: 1.2; text-align: center; padding: 0 4px; }
 .sign-hint   { font-size: 0.65rem; color: rgba(255,255,255,0.65); font-weight: 800; letter-spacing: 0.5px; }
 .sign-post-boot  { background: #9E9E9E; }
 .sign-post-trein { background: #424242; height: 80px; }
@@ -319,6 +344,16 @@ body { display: flex; justify-content: center; align-items: center; font-family:
 .rank-3 { color:#CD7F32; }
 .score-col { color:#4ecdc4; font-family:'Fredoka One',cursive; }
 .level-col { color:#aaddff; font-size:0.8rem; }
+/* ===== SCOREBOARD TABS ===== */
+.score-tabs { display:flex; gap:0; margin-bottom:12px; border-radius:12px; overflow:hidden; border:2px solid rgba(255,215,0,0.3); }
+.score-tab {
+  flex:1; padding:10px 0; text-align:center;
+  font-family:'Fredoka One',cursive; font-size:1rem; color:rgba(255,255,255,0.55);
+  cursor:pointer; background:rgba(255,255,255,0.05); transition:all 0.2s;
+}
+.score-tab:hover { background:rgba(255,255,255,0.1); color:white; }
+.score-tab.active { background:rgba(255,215,0,0.2); color:#FFD700; }
+
 .empty-scoreboard { color:rgba(255,255,255,0.4); font-size:0.9rem; padding:20px; text-align:center; }
 .loading-scores { color:rgba(255,255,255,0.5); font-size:0.9rem; padding:20px; text-align:center; }
 .offline-badge {

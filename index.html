@@ -14,10 +14,25 @@
   <div id="start-screen" class="screen active">
     <div class="start-logo-wrap">
       <img src="liviarekenrace.png" alt="Livia's RekenRace" class="start-logo-img">
-      <div class="start-subtitle">Kies je voertuig en rij!</div>
+    </div>
+
+    <!-- Group picker -->
+    <div class="group-section-label">Kies je groep</div>
+    <div class="group-picker">
+      <div class="group-card selected" id="card-groep3" onclick="selectGroup(3)">
+        <div class="group-card-emoji">🔢</div>
+        <div class="group-card-name">Groep 3</div>
+        <div class="group-card-desc">Optellen en aftrekken</div>
+      </div>
+      <div class="group-card" id="card-groep6" onclick="selectGroup(6)">
+        <div class="group-card-emoji">➗</div>
+        <div class="group-card-name">Groep 6</div>
+        <div class="group-card-desc">Grotere sommen en tafels</div>
+      </div>
     </div>
 
     <!-- Vehicle picker -->
+    <div class="group-section-label">Kies je voertuig</div>
     <div class="vehicle-picker">
       <div class="vehicle-card selected" id="card-auto" onclick="selectVehicle('auto')">
         <div class="vehicle-thumb">
@@ -87,7 +102,7 @@
         <div class="lives-display" id="lives-display"></div>
       </div>
       <div class="hud-item" style="flex-direction:column;align-items:center;gap:2px">
-        <span class="hud-label">Level</span>
+        <span class="hud-label" id="hud-group-level-label">Groep 3 – Level</span>
         <span class="hud-val" id="hud-level">1</span>
       </div>
       <div class="hud-item" style="flex-direction:column;align-items:flex-end;gap:2px">
@@ -186,6 +201,10 @@
       <button class="btn btn-primary mt-8" style="font-size:1.1rem;padding:10px 28px" id="save-btn" onclick="saveHighScore()">Opslaan</button>
     </div>
 
+    <div class="score-tabs" id="go-score-tabs" style="display:none;width:90%;max-width:380px;">
+      <div class="score-tab active" id="go-tab-groep3" onclick="switchGoTab(3)">Groep 3</div>
+      <div class="score-tab" id="go-tab-groep6" onclick="switchGoTab(6)">Groep 6</div>
+    </div>
     <div id="go-scoreboard"></div>
 
     <button class="btn btn-primary mt-8" onclick="startGame()">&#9654; Opnieuw Spelen</button>
@@ -195,6 +214,10 @@
   <!-- ==================== SCOREBOARD SCREEN ==================== -->
   <div id="scoreboard-screen" class="screen scrollable">
     <div class="scoreboard-title">&#127942; Topscores</div>
+    <div class="score-tabs">
+      <div class="score-tab active" id="tab-groep3" onclick="switchScoreTab(3)">Groep 3</div>
+      <div class="score-tab" id="tab-groep6" onclick="switchScoreTab(6)">Groep 6</div>
+    </div>
     <div class="scoreboard-table" id="scoreboard-table"></div>
     <button class="btn btn-secondary" onclick="showScreen('start-screen')">&#8592; Terug</button>
   </div>

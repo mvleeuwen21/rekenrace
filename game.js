@@ -43,6 +43,7 @@ const G = {
   locked:            false,
   questionStartTime: 0,
   vehicle:           'auto',   // 'auto' | 'boot' | 'trein'
+  group:             3,        // 3 | 6
   gameOverId:        0,        // incremented to cancel stale async renders
 };
 
@@ -55,7 +56,7 @@ function jsonbinHeaders() {
   return { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_KEY };
 }
 
-async function loadOnlineScores() {
+async function loadOnlineScores(groep) {
   if (!JSONBIN_ID || !JSONBIN_KEY) return null;
   try {
     const res = await fetch(`${JSONBIN_BASE}/${JSONBIN_ID}/latest`, {
@@ -63,27 +64,37 @@ async function loadOnlineScores() {
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
-    return Array.isArray(json.record?.scores) ? json.record.scores : [];
+    const all = Array.isArray(json.record?.scores) ? json.record.scores : [];
+    // If groep supplied, filter; otherwise return all (legacy)
+    if (groep != null) return all.filter(s => (s.groep || 3) === groep);
+    return all;
   } catch (e) {
     console.warn('JSONBin laden mislukt:', e);
     return null;
   }
 }
 
-async function saveOnlineScore(naam, score, level, voertuig) {
+async function saveOnlineScore(naam, score, level, voertuig, groep) {
   if (!JSONBIN_ID || !JSONBIN_KEY) return false;
   try {
-    // Lees huidige top 10 op
-    const current = (await loadOnlineScores()) || [];
-    // Voeg nieuwe score toe, sorteer, knip af op 10
-    current.push({ naam, score, level, voertuig });
+    // Read all scores (unfiltered) so we don't lose the other group's data
+    const res0 = await fetch(`${JSONBIN_BASE}/${JSONBIN_ID}/latest`, { headers: { 'X-Master-Key': JSONBIN_KEY } });
+    let allScores = [];
+    if (res0.ok) {
+      const j = await res0.json();
+      allScores = Array.isArray(j.record?.scores) ? j.record.scores : [];
+    }
+    // Separate by group, update only this group's top-10
+    const other   = allScores.filter(s => (s.groep || 3) !== groep);
+    const current = allScores.filter(s => (s.groep || 3) === groep);
+    current.push({ naam, score, level, voertuig, groep });
     current.sort((a, b) => b.score - a.score);
     current.splice(10);
-    // Schrijf terug naar JSONBin
+    const merged = [...other, ...current];
     const res = await fetch(`${JSONBIN_BASE}/${JSONBIN_ID}`, {
       method: 'PUT',
       headers: jsonbinHeaders(),
-      body: JSON.stringify({ scores: current }),
+      body: JSON.stringify({ scores: merged }),
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     return true;
@@ -96,27 +107,41 @@ async function saveOnlineScore(naam, score, level, voertuig) {
 /* ================================================================
    LOCAL STORAGE  (fallback + always saved locally)
    ================================================================ */
-const LS_SCORES  = 'rekenrace_scores_v2';
-const LS_VEHICLE = 'rekenrace_vehicle_v1';
+const LS_SCORES_G3 = 'rekenrace_scores_g3_v1';
+const LS_SCORES_G6 = 'rekenrace_scores_g6_v1';
+const LS_VEHICLE   = 'rekenrace_vehicle_v1';
+const LS_GROUP     = 'rekenrace_group_v1';
 
-function loadLocalScores() {
+// Legacy key — migrate old scores into G3 bucket on first load
+const LS_SCORES_LEGACY = 'rekenrace_scores_v2';
+
+function lsKeyForGroup(g) { return g === 6 ? LS_SCORES_G6 : LS_SCORES_G3; }
+
+function loadLocalScores(g) {
   try {
-    const raw = JSON.parse(localStorage.getItem(LS_SCORES)) || [];
+    const key = lsKeyForGroup(g);
+    let raw = JSON.parse(localStorage.getItem(key)) || [];
+    // Migrate legacy scores into G3 on first access
+    if (g !== 6 && raw.length === 0) {
+      const legacy = JSON.parse(localStorage.getItem(LS_SCORES_LEGACY)) || [];
+      if (legacy.length) { raw = legacy; localStorage.setItem(key, JSON.stringify(raw)); }
+    }
     return raw.map(s => ({
       naam:     s.naam     || s.name    || 'Speler',
       score:    s.score    || 0,
       level:    s.level    || 1,
       voertuig: s.voertuig || s.vehicle || 'auto',
+      groep:    s.groep    || (g === 6 ? 6 : 3),
     }));
   } catch { return []; }
 }
 
-function addLocalScore(naam, score, level, voertuig) {
-  const scores = loadLocalScores();
-  scores.push({ naam, score, level, voertuig });
+function addLocalScore(naam, score, level, voertuig, groep) {
+  const scores = loadLocalScores(groep);
+  scores.push({ naam, score, level, voertuig, groep });
   scores.sort((a, b) => b.score - a.score);
   scores.splice(10);
-  localStorage.setItem(LS_SCORES, JSON.stringify(scores));
+  localStorage.setItem(lsKeyForGroup(groep), JSON.stringify(scores));
 }
 
 /* ================================================================
@@ -157,69 +182,238 @@ function soundStart()    { playTone([392,523,659,784],[0.1,0.1,0.1,0.2],'sine',0
    ================================================================ */
 function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
-function generateProblem(level) {
+/* ---- Dutch number formatting ---- */
+function fmtNL(n) {
+  // Format integer with dot as thousands separator (e.g. 3400 → "3.400")
+  return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+/* ---- Groep 3 problem generation (original) ---- */
+function generateProblemG3(level) {
   let num1, num2, answer, display;
   const add = Math.random() < 0.5;
 
   switch (level) {
-    case 1: { // addition, result 1–10
+    case 1: {
       answer = rand(1, 10); num1 = rand(0, answer); num2 = answer - num1;
       display = `${num1} + ${num2} = ?`; break;
     }
-    case 2: { // addition + subtraction, result 0–9
+    case 2: {
       answer = rand(0, 9);
       if (add) { num1 = rand(0, answer); num2 = answer - num1; display = `${num1} + ${num2} = ?`; }
       else      { num2 = rand(0, answer); num1 = answer + num2; display = `${num1} − ${num2} = ?`; }
       break;
     }
-    case 3: { // addition, result 1–15
+    case 3: {
       answer = rand(1, 15); num1 = rand(0, answer); num2 = answer - num1;
       display = `${num1} + ${num2} = ?`; break;
     }
-    case 4: { // addition + subtraction, result 0–15
+    case 4: {
       answer = rand(0, 15);
       if (add) { num1 = rand(0, answer); num2 = answer - num1; display = `${num1} + ${num2} = ?`; }
       else      { num2 = rand(0, answer); num1 = answer + num2; display = `${num1} − ${num2} = ?`; }
       break;
     }
-    case 5: { // addition, result 1–20
+    case 5: {
       answer = rand(1, 20); num1 = rand(0, answer); num2 = answer - num1;
       display = `${num1} + ${num2} = ?`; break;
     }
-    case 6: { // addition + subtraction, result 0–20
+    case 6: {
       answer = rand(0, 20);
       if (add) { num1 = rand(0, answer); num2 = answer - num1; display = `${num1} + ${num2} = ?`; }
       else      { num2 = rand(0, answer); num1 = answer + num2; display = `${num1} − ${num2} = ?`; }
       break;
     }
-    case 7: { // times tables 2 and 5
+    case 7: {
       const tbl = Math.random() < 0.5 ? 2 : 5;
       num1 = rand(1, 10); num2 = tbl; answer = num1 * num2;
       display = `${num1} × ${num2} = ?`; break;
     }
-    default: { // level 8: all tables 1–10
+    default: {
       num1 = rand(1, 10); num2 = rand(1, 10); answer = num1 * num2;
       display = `${num1} × ${num2} = ?`; break;
     }
   }
 
-  const wrong = genWrong(answer);
+  const wrong = genWrongG3(answer);
   const leftIsCorrect = Math.random() < 0.5;
   return {
-    display, answer, wrong,
-    leftAnswer:     leftIsCorrect ? answer : wrong,
-    rightAnswer:    leftIsCorrect ? wrong  : answer,
+    display,
+    answerDisplay: String(answer),
+    wrongDisplay:  String(wrong),
     leftIsCorrect,
   };
 }
 
-function genWrong(correct) {
+function genWrongG3(correct) {
   for (let i = 0; i < 20; i++) {
     const off = rand(1, 3), dir = Math.random() < 0.5 ? 1 : -1;
     const c = correct + dir * off;
     if (c > 0 && c !== correct) return c;
   }
   return correct > 1 ? correct - 1 : correct + 1;
+}
+
+/* ---- Groep 6 problem generation ---- */
+function generateProblemG6(level) {
+  let display, answerDisplay, wrongDisplay;
+
+  switch (level) {
+    case 1: { // Optellen tot 1.000, veelvouden van 10
+      const a = rand(1, 9) * 100 + rand(0, 9) * 10;
+      const b = rand(1, 9) * 100 + rand(0, 9) * 10;
+      const ans = a + b;
+      if (ans < 100 || ans > 1000) return generateProblemG6(level);
+      display = `${fmtNL(a)} + ${fmtNL(b)} = ?`;
+      answerDisplay = fmtNL(ans);
+      wrongDisplay  = fmtNL(genWrongAddSub(ans));
+      break;
+    }
+    case 2: { // Aftrekken tot 1.000
+      const ans = rand(10, 89) * 10;
+      const b   = rand(1, 8) * 100 + rand(0, 9) * 10;
+      const a   = ans + b;
+      if (a > 1000 || ans <= 0) return generateProblemG6(level);
+      display = `${fmtNL(a)} − ${fmtNL(b)} = ?`;
+      answerDisplay = fmtNL(ans);
+      wrongDisplay  = fmtNL(genWrongAddSub(ans));
+      break;
+    }
+    case 3: { // Optellen en aftrekken tot 10.000, veelvouden van 100
+      const a   = rand(10, 90) * 100;
+      const b   = rand(10, 90) * 100;
+      const sub = Math.random() < 0.5;
+      const ans = sub ? a - b : a + b;
+      if (ans < 1000 || ans > 10000) return generateProblemG6(level);
+      display = sub
+        ? `${fmtNL(a)} − ${fmtNL(b)} = ?`
+        : `${fmtNL(a)} + ${fmtNL(b)} = ?`;
+      answerDisplay = fmtNL(ans);
+      wrongDisplay  = fmtNL(genWrongAddSub(ans));
+      break;
+    }
+    case 4: { // Tafels t/m 10
+      const t  = rand(2, 10);
+      const n  = rand(2, 10);
+      const ans = t * n;
+      display = `${t} × ${n} = ?`;
+      answerDisplay = String(ans);
+      wrongDisplay  = genWrongMul(t, n, ans);
+      break;
+    }
+    case 5: { // Vermenigvuldigen met tiental/honderdtal
+      const types = [
+        () => { const n = rand(11,99); return { a:10, b:n, ans:10*n }; },
+        () => { const n = rand(11,99); return { a:100, b:n, ans:100*n }; },
+        () => { const f = rand(2,9)*10; const n = rand(11,99); return { a:f, b:n, ans:f*n }; },
+        () => { const f = rand(2,9)*10; const g = rand(2,9)*10; return { a:f, b:g, ans:f*g }; },
+        () => { const n = rand(2,9); const h = rand(2,9)*100; return { a:n, b:h, ans:n*h }; },
+        () => { const n = rand(2,9)*100; const g = rand(2,9); return { a:n, b:g, ans:n*g }; },
+      ];
+      const {a, b, ans} = types[rand(0, types.length-1)]();
+      display = `${fmtNL(a)} × ${fmtNL(b)} = ?`;
+      answerDisplay = fmtNL(ans);
+      wrongDisplay  = genWrongMulLarge(ans);
+      break;
+    }
+    case 6: { // Handig rekenen
+      const types = [
+        () => { const n = rand(2,9); const m = rand(4,9)*10 - 1; return { a:n, b:m, ans:n*m }; },
+        () => { const n = rand(2,9); const m = rand(2,9)*100 - 20 + rand(0,3)*20; return { a:n, b:m, ans:n*m }; },
+        () => { const n = rand(2,9); const m = rand(3,9)*10 - 5; return { a:n, b:m, ans:n*m }; },
+        () => { const n = 5; const m = rand(4,9)*10 - 2; return { a:n, b:m, ans:n*m }; },
+      ];
+      const {a, b, ans} = types[rand(0, types.length-1)]();
+      display = `${fmtNL(a)} × ${fmtNL(b)} = ?`;
+      answerDisplay = fmtNL(ans);
+      wrongDisplay  = genWrongMulLarge(ans);
+      break;
+    }
+    case 7: { // Delen zonder rest
+      const delers = [2, 3, 4, 5, 6, 10, 12];
+      const deler  = delers[rand(0, delers.length - 1)];
+      const types  = [
+        () => deler * rand(2, 9) * 10,
+        () => deler * rand(2, 9) * 100,
+        () => deler * rand(2, 20),
+      ];
+      const deeltal = types[rand(0, types.length - 1)]();
+      const ans     = deeltal / deler;
+      display = `${fmtNL(deeltal)} : ${deler} = ?`;
+      answerDisplay = fmtNL(ans);
+      wrongDisplay  = String(Math.max(1, ans + (Math.random() < 0.5 ? 1 : -1)));
+      break;
+    }
+    default: { // Level 8: Delen met rest
+      const delers = [3, 4, 6, 7, 8, 9];
+      const deler  = delers[rand(0, delers.length - 1)];
+      // Find deeltal that gives a rest 1..(deler-1)
+      let deeltal, quotient, rest;
+      for (let i = 0; i < 30; i++) {
+        deeltal  = rand(10, 40) * deler + rand(1, deler - 1);
+        quotient = Math.floor(deeltal / deler);
+        rest     = deeltal % deler;
+        if (rest > 0 && rest < deler && quotient > 1) break;
+      }
+      display = `${fmtNL(deeltal)} : ${deler} = ?`;
+      answerDisplay = `${quotient} rest ${rest}`;
+      // Wrong: impossible rest (>= deler) or off-by-one quotient
+      const wrongRest = deler + rand(0, deler - 1); // rest >= deler → impossible
+      wrongDisplay  = `${quotient} rest ${wrongRest}`;
+      break;
+    }
+  }
+
+  const leftIsCorrect = Math.random() < 0.5;
+  return { display, answerDisplay, wrongDisplay, leftIsCorrect };
+}
+
+function genWrongAddSub(correct) {
+  const magnitude = correct >= 1000 ? 100 : 10;
+  for (let i = 0; i < 20; i++) {
+    const off = rand(1, 5) * magnitude;
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    const c   = correct + dir * off;
+    if (c > 0 && c !== correct) return c;
+  }
+  return correct + magnitude;
+}
+
+function genWrongMul(t, n, correct) {
+  // One table step higher or lower
+  const step = Math.random() < 0.5 ? t : n;
+  const dir  = Math.random() < 0.5 ? 1 : -1;
+  const c    = correct + dir * step;
+  if (c > 0 && c !== correct) return String(c);
+  return String(correct + step);
+}
+
+function genWrongMulLarge(correct) {
+  const magnitude = correct >= 1000 ? 100 : correct >= 100 ? 10 : 5;
+  for (let i = 0; i < 20; i++) {
+    const off = rand(1, 3) * magnitude;
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    const c   = correct + dir * off;
+    if (c > 0 && c !== correct) return fmtNL(c);
+  }
+  return fmtNL(correct + magnitude);
+}
+
+/* ---- Dispatcher ---- */
+function generateProblem(level) {
+  let prob;
+  if (G.group === 6) {
+    prob = generateProblemG6(level);
+  } else {
+    prob = generateProblemG3(level);
+  }
+  const { display, answerDisplay, wrongDisplay, leftIsCorrect } = prob;
+  return {
+    display,
+    leftAnswer:  leftIsCorrect ? answerDisplay : wrongDisplay,
+    rightAnswer: leftIsCorrect ? wrongDisplay  : answerDisplay,
+    leftIsCorrect,
+  };
 }
 
 /* ================================================================
@@ -268,6 +462,14 @@ const DECO = {
   boot:  ['🐟','🐠','🦀','⭐','🐚','🌊','🐬'],
   trein: ['🌲','🌳','🏠','⛰️','🌾','🏡','🌄'],
 };
+
+function selectGroup(g, saveLS = true) {
+  G.group = g;
+  if (saveLS) localStorage.setItem(LS_GROUP, g);
+  document.querySelectorAll('.group-card').forEach(c => c.classList.remove('selected'));
+  const card = document.getElementById('card-groep' + g);
+  if (card) card.classList.add('selected');
+}
 
 function selectVehicle(v, saveLS = true) {
   G.vehicle = v;
@@ -366,13 +568,18 @@ function handleTimeout() {
 /* ================================================================
    QUESTION FLOW
    ================================================================ */
+function updateHudGroupLevel() {
+  const label = document.getElementById('hud-group-level-label');
+  if (label) label.textContent = `Groep ${G.group} – Level`;
+}
+
 function showNewQuestion() {
   if (G.screen !== 'game-screen') return;
   G.problem = generateProblem(G.level);
 
   document.getElementById('problem-text').textContent = G.problem.display;
-  document.getElementById('left-answer').textContent  = G.problem.leftAnswer;
-  document.getElementById('right-answer').textContent = G.problem.rightAnswer;
+  document.getElementById('left-answer').innerHTML    = G.problem.leftAnswer;
+  document.getElementById('right-answer').innerHTML   = G.problem.rightAnswer;
 
   // Reset sign colors
   ['sign-board-left', 'sign-board-right'].forEach(id => {
@@ -502,6 +709,7 @@ function startGame() {
 
   applyTheme(G.vehicle);
   showScreen('game-screen');
+  updateHudGroupLevel();
   document.getElementById('hud-level').textContent   = G.level;
   document.getElementById('hud-score').textContent   = G.score;
   document.getElementById('progress-text').textContent = '0/10';
@@ -550,6 +758,7 @@ function nextLevel() {
   if (G.level >= 8) { endGame(); return; }
   G.level++; G.correctCount = 0; G.lives = 3; G.locked = false;
   showScreen('game-screen');
+  updateHudGroupLevel();
   document.getElementById('hud-level').textContent   = G.level;
   document.getElementById('hud-score').textContent   = G.score;
   document.getElementById('progress-text').textContent = '0/10';
@@ -568,17 +777,24 @@ async function triggerGameOver() {
   else        { goTitle.textContent = 'Game Over!';   goTitle.style.color = '#ff5252'; }
 
   document.getElementById('go-score').textContent = `Eindscore: ${G.score}`;
-  document.getElementById('go-level').textContent = `Level bereikt: ${G.level}`;
+  document.getElementById('go-level').textContent = `Groep ${G.group} – Level bereikt: ${G.level}`;
   document.getElementById('name-input-wrap').style.display = 'none';
   document.getElementById('go-scoreboard').innerHTML = '<div class="scoreboard-table"><div class="loading-scores">⏳ Scores laden...</div></div>';
+  // Show tabs, activate correct one
+  const goTabs = document.getElementById('go-score-tabs');
+  if (goTabs) {
+    goTabs.style.display = 'flex';
+    ['groep3','groep6'].forEach(id => document.getElementById('go-tab-' + id)?.classList.remove('active'));
+    document.getElementById('go-tab-groep' + G.group)?.classList.add('active');
+  }
 
   setTimeout(() => showScreen('game-over-screen'), 400);
 
   // Load scores to check qualification
-  const online = await loadOnlineScores();
+  const online = await loadOnlineScores(G.group);
   if (G.gameOverId !== goId) return;
 
-  const scores = online || loadLocalScores();
+  const scores = online || loadLocalScores(G.group);
   const isOffline = !online;
   const qualifies = G.score > 0 && (scores.length < 10 || G.score > (scores[scores.length - 1]?.score ?? 0));
 
@@ -600,16 +816,16 @@ async function saveHighScore() {
   const btn  = document.getElementById('save-btn');
   btn.disabled = true; btn.textContent = '⏳ Opslaan...';
 
-  const savedOnline = await saveOnlineScore(naam, G.score, G.level, G.vehicle);
-  addLocalScore(naam, G.score, G.level, G.vehicle);
+  const savedOnline = await saveOnlineScore(naam, G.score, G.level, G.vehicle, G.group);
+  addLocalScore(naam, G.score, G.level, G.vehicle, G.group);
 
   let finalScores, isOffline;
   if (savedOnline) {
-    const online = await loadOnlineScores();
-    finalScores = online || loadLocalScores();
+    const online = await loadOnlineScores(G.group);
+    finalScores = online || loadLocalScores(G.group);
     isOffline   = !online;
   } else {
-    finalScores = loadLocalScores();
+    finalScores = loadLocalScores(G.group);
     isOffline   = true;
   }
 
@@ -668,13 +884,42 @@ function renderGoScoreboard(scores, hlIdx, isOffline) {
     `<div class="scoreboard-table" style="margin-bottom:0">${buildScoreHTML(scores, hlIdx, isOffline)}</div>`;
 }
 
+// Active tab for the standalone scoreboard screen
+let _scoreTab = 3;
+
 async function showScoreboardScreen() {
   showScreen('scoreboard-screen');
+  _scoreTab = G.group;
+  ['groep3','groep6'].forEach(id => document.getElementById('tab-' + id)?.classList.remove('active'));
+  document.getElementById('tab-groep' + _scoreTab)?.classList.add('active');
+  await _loadScoreTab(_scoreTab);
+}
+
+async function switchScoreTab(g) {
+  _scoreTab = g;
+  ['groep3','groep6'].forEach(id => document.getElementById('tab-' + id)?.classList.remove('active'));
+  document.getElementById('tab-groep' + g)?.classList.add('active');
+  await _loadScoreTab(g);
+}
+
+async function _loadScoreTab(g) {
   const el = document.getElementById('scoreboard-table');
   el.innerHTML = '<div class="loading-scores">⏳ Scores laden...</div>';
-  const online  = await loadOnlineScores();
-  const scores  = online || loadLocalScores();
-  el.innerHTML  = buildScoreHTML(scores, -1, !online);
+  const online = await loadOnlineScores(g);
+  const scores = online || loadLocalScores(g);
+  el.innerHTML = buildScoreHTML(scores, -1, !online);
+}
+
+// Active tab for go-scoreboard
+let _goScoreTab = 3;
+
+async function switchGoTab(g) {
+  _goScoreTab = g;
+  ['groep3','groep6'].forEach(id => document.getElementById('go-tab-' + id)?.classList.remove('active'));
+  document.getElementById('go-tab-groep' + g)?.classList.add('active');
+  const online = await loadOnlineScores(g);
+  const scores = online || loadLocalScores(g);
+  renderGoScoreboard(scores, -1, !online);
 }
 
 function escHtml(str) {
@@ -709,12 +954,16 @@ function buildGrass() {
 /* ================================================================
    INIT
    ================================================================ */
-// Restore saved vehicle
+// Restore saved vehicle and group
 (function () {
-  const saved = localStorage.getItem(LS_VEHICLE) || 'auto';
-  selectVehicle(saved, false);
+  const savedGroup   = parseInt(localStorage.getItem(LS_GROUP), 10) || 3;
+  selectGroup(savedGroup, false);
+
+  const savedVehicle = localStorage.getItem(LS_VEHICLE) || 'auto';
+  selectVehicle(savedVehicle, false);
+
   // Apply theme bg on start screen too
-  const bg = VEHICLE_BG[saved] || VEHICLE_BG.auto;
+  const bg = VEHICLE_BG[savedVehicle] || VEHICLE_BG.auto;
   document.body.style.background = bg;
   document.getElementById('game-wrap').style.background = bg;
   buildGrass();
