@@ -25,10 +25,10 @@ body { display: flex; justify-content: center; align-items: center; font-family:
 /* ===== START SCREEN ===== */
 #start-screen { background: linear-gradient(160deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%); }
 @keyframes titleBounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-.start-logo-wrap { display: flex; flex-direction: column; align-items: center; margin-bottom: 4px; width: 100%; }
+.start-logo-wrap { display: flex; flex-direction: column; align-items: center; margin-bottom: 2px; width: 100%; }
 .start-logo-img {
   width: 100%;
-  max-height: 300px;
+  max-height: 210px;
   object-fit: contain;
   animation: titleBounce 2.5s ease-in-out infinite;
   filter: drop-shadow(0 6px 28px rgba(0,0,0,0.55));
@@ -36,38 +36,38 @@ body { display: flex; justify-content: center; align-items: center; font-family:
 .start-subtitle { font-size: 1rem; color: #aaddff; margin-bottom: 12px; font-weight: 700; margin-top: 6px; }
 
 /* ===== GROUP PICKER ===== */
-.group-picker { display: flex; gap: 14px; margin: 0 0 14px; justify-content: center; width: 90%; }
+.group-picker { display: flex; gap: 10px; margin: 0 0 8px; justify-content: center; width: 90%; }
 .group-card {
   flex: 1; max-width: 180px;
   background: rgba(255,255,255,0.07);
   border: 3px solid rgba(255,255,255,0.2);
-  border-radius: 18px;
-  padding: 16px 10px 14px;
+  border-radius: 16px;
+  padding: 8px 10px 6px;
   text-align: center;
   cursor: pointer;
   transition: all 0.2s;
   user-select: none;
 }
-.group-card:hover { background: rgba(255,255,255,0.14); transform: translateY(-3px); }
+.group-card:hover { background: rgba(255,255,255,0.14); transform: translateY(-2px); }
 .group-card:active { transform: scale(0.96); }
 .group-card.selected {
   border-color: #FFD700;
   background: rgba(255,215,0,0.15);
-  box-shadow: 0 0 18px rgba(255,215,0,0.35);
+  box-shadow: 0 0 14px rgba(255,215,0,0.35);
 }
-.group-card-emoji { font-size: 2rem; margin-bottom: 6px; }
-.group-card-name { font-family: 'Fredoka One', cursive; font-size: 1.2rem; color: white; }
-.group-card-desc { font-size: 0.72rem; color: rgba(255,255,255,0.6); margin-top: 4px; line-height: 1.4; }
-.group-section-label { font-size: 0.7rem; color: #aaddff; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+.group-card-emoji { font-size: 1.5rem; margin-bottom: 3px; }
+.group-card-name { font-family: 'Fredoka One', cursive; font-size: 1.1rem; color: white; }
+.group-card-desc { font-size: 0.68rem; color: rgba(255,255,255,0.6); margin-top: 2px; line-height: 1.3; }
+.group-section-label { font-size: 0.65rem; color: #aaddff; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
 
 /* ===== VEHICLE PICKER ===== */
-.vehicle-picker { display: flex; gap: 10px; margin: 0 0 16px; justify-content: center; }
+.vehicle-picker { display: flex; gap: 10px; margin: 0 0 10px; justify-content: center; }
 .vehicle-card {
-  width: 108px;
+  width: 100px;
   background: rgba(255,255,255,0.07);
   border: 3px solid rgba(255,255,255,0.2);
-  border-radius: 18px;
-  padding: 10px 6px 8px;
+  border-radius: 16px;
+  padding: 7px 6px 5px;
   text-align: center;
   cursor: pointer;
   transition: all 0.2s;
@@ -88,9 +88,9 @@ body { display: flex; justify-content: center; align-items: center; font-family:
 
 /* ===== BUTTONS ===== */
 .btn {
-  font-family: 'Fredoka One', cursive; font-size: 1.4rem; padding: 14px 40px;
+  font-family: 'Fredoka One', cursive; font-size: 1.2rem; padding: 10px 32px;
   border: none; border-radius: 50px; cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s; margin: 5px; letter-spacing: 0.5px;
+  transition: transform 0.15s, box-shadow 0.15s; margin: 4px; letter-spacing: 0.5px;
 }
 .btn:active { transform: scale(0.95) !important; }
 .btn-primary { background: linear-gradient(135deg, #FF6B35, #FF4500); color: white; box-shadow: 0 5px 0 #c43300, 0 7px 15px rgba(0,0,0,0.3); }
@@ -98,9 +98,9 @@ body { display: flex; justify-content: center; align-items: center; font-family:
 .btn-secondary { background: linear-gradient(135deg, #4ecdc4, #2CB9B0); color: white; box-shadow: 0 5px 0 #1a8a82, 0 7px 15px rgba(0,0,0,0.2); }
 .btn-secondary:hover { transform: translateY(-3px); box-shadow: 0 8px 0 #1a8a82, 0 10px 20px rgba(0,0,0,0.2); }
 .controls-info {
-  margin-top: 14px; background: rgba(255,255,255,0.08); border-radius: 14px;
-  padding: 12px 20px; color: #cceeff; font-size: 0.85rem; text-align: center;
-  line-height: 1.7; max-width: 310px;
+  margin-top: 6px; background: rgba(255,255,255,0.08); border-radius: 12px;
+  padding: 8px 16px; color: #cceeff; font-size: 0.78rem; text-align: center;
+  line-height: 1.6; max-width: 310px;
 }
 .controls-info strong { color: #FFD700; }
 
