@@ -111,6 +111,35 @@ const LS_SCORES_G3 = 'rekenrace_scores_g3_v1';
 const LS_SCORES_G6 = 'rekenrace_scores_g6_v1';
 const LS_VEHICLE   = 'rekenrace_vehicle_v1';
 const LS_GROUP     = 'rekenrace_group_v1';
+const LS_LAST_SAVE = 'rekenrace_last_save';
+
+const SAVE_COOLDOWN_MS = 30_000; // prevent >1 save per 30 s
+const MAX_SCORE        = 99_999; // scores boven deze grens zijn onrealistisch
+
+function sanitizeName(raw) {
+  // Strip HTML tags, then keep only printable non-markup characters
+  return raw
+    .replace(/<[^>]*>/g, '')
+    .replace(/[<>"'`]/g, '')
+    .trim()
+    .slice(0, 14) || 'Speler';
+}
+
+function isValidScore(score, level) {
+  return (
+    Number.isInteger(score) && score > 0 && score <= MAX_SCORE &&
+    Number.isInteger(level) && level >= 1 && level <= 8
+  );
+}
+
+function checkRateLimit() {
+  const last = parseInt(localStorage.getItem(LS_LAST_SAVE) || '0', 10);
+  return Date.now() - last >= SAVE_COOLDOWN_MS;
+}
+
+function markRateLimit() {
+  localStorage.setItem(LS_LAST_SAVE, String(Date.now()));
+}
 
 // Legacy key — migrate old scores into G3 bucket on first load
 const LS_SCORES_LEGACY = 'rekenrace_scores_v2';
@@ -812,9 +841,23 @@ async function triggerGameOver() {
 function endGame() { triggerGameOver(); }
 
 async function saveHighScore() {
-  const naam = (document.getElementById('player-name').value.trim() || 'Speler').slice(0, 14);
+  const naam = sanitizeName(document.getElementById('player-name').value);
   const btn  = document.getElementById('save-btn');
+
+  if (!isValidScore(G.score, G.level)) {
+    btn.textContent = 'Ongeldige score';
+    setTimeout(() => { btn.disabled = false; btn.textContent = 'Opslaan'; }, 2000);
+    return;
+  }
+
+  if (!checkRateLimit()) {
+    btn.textContent = 'Even wachten...';
+    setTimeout(() => { btn.disabled = false; btn.textContent = 'Opslaan'; }, 2000);
+    return;
+  }
+
   btn.disabled = true; btn.textContent = '⏳ Opslaan...';
+  markRateLimit();
 
   const savedOnline = await saveOnlineScore(naam, G.score, G.level, G.vehicle, G.group);
   addLocalScore(naam, G.score, G.level, G.vehicle, G.group);
