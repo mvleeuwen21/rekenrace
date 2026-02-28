@@ -23,7 +23,7 @@ body { display: flex; justify-content: center; align-items: center; font-family:
 .screen.scrollable { justify-content: flex-start; overflow-y: auto; padding: 20px 10px 30px; }
 
 /* ===== START SCREEN ===== */
-#start-screen { background: linear-gradient(160deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%); }
+#start-screen { background: linear-gradient(160deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%); padding-top: 24px; }
 @keyframes titleBounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 .start-logo-wrap { display: flex; flex-direction: column; align-items: center; margin-bottom: 2px; width: 100%; }
 .start-logo-img {
